@@ -19,7 +19,10 @@ add_executable (main "Vulkan.cpp")
 find_package(Vulkan REQUIRED)
 target_link_libraries(main PRIVATE Vulkan::Vulkan)
 
-find_package(glfw3 CONFIG REQUIRED)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+add_subdirectory("glfw-3.3.2")
 target_link_libraries(main PRIVATE glfw)
 
 find_package(glm CONFIG REQUIRED)
