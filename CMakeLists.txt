@@ -13,7 +13,6 @@ project ("Vulkan")
 configure_file("shaders/vert.spv" "shaders/vert.spv" COPYONLY)
 configure_file("shaders/frag.spv" "shaders/frag.spv" COPYONLY)
 
-# Add source to this project's executable.
 add_executable (main "Vulkan.cpp")
 
 find_package(Vulkan REQUIRED)
