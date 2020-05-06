@@ -18,8 +18,11 @@ add_executable (main "Vulkan.cpp")
 find_package(Vulkan REQUIRED)
 target_link_libraries(main PRIVATE Vulkan::Vulkan)
 
-find_package(glfw3 CONFIG REQUIRED)
+add_subdirectory("deps/glfw-3.3.2")
 target_link_libraries(main PRIVATE glfw)
 
-find_package(glm CONFIG REQUIRED)
+add_subdirectory("deps/glm-0.9.9.8")
 target_link_libraries(main PRIVATE glm)
+
+# include stb
+target_include_directories(main PRIVATE "deps/stb")
