@@ -9,9 +9,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 project ("Vulkan")
 
-# copy shaders using configure file
+# copy files
 configure_file("shaders/vert.spv" "shaders/vert.spv" COPYONLY)
 configure_file("shaders/frag.spv" "shaders/frag.spv" COPYONLY)
+configure_file("textures/texture.jpg" "textures/texture.jpg" COPYONLY)
 
 add_executable (main "Vulkan.cpp")
 
