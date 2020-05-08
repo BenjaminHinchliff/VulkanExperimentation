@@ -5,11 +5,16 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/hash.hpp>
 // stb
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+// tiny_obj_loader
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
 // std
 #include <iostream>
 #include <cstdlib>
@@ -22,9 +27,13 @@
 #include <fstream>
 #include <array>
 #include <chrono>
+#include <unordered_map>
 
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
+
+const std::string MODEL_PATH = "models/viking_room.wobj";
+const std::string TEXTURE_PATH = "textures/viking_room.png";
 
 constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -96,30 +105,31 @@ struct Vertex
 
 		return attributeDescriptions;
 	}
+
+	bool operator==(const Vertex &other) const
+	{
+		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+	}
 };
+
+namespace std
+{
+	template<> struct hash<Vertex>
+	{
+		size_t operator()(const Vertex &vertex) const
+		{
+			return ((hash<glm::vec3>()(vertex.pos) ^
+				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+				(hash<glm::vec2>()(vertex.texCoord) << 1);
+		}
+	};
+}
 
 struct UniformBufferObject
 {
 	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
-};
-
-const std::vector<Vertex> vertices = {
-	{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-	{{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-	{{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-	{{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-	{{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-	{ {0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-	{{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-	{{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-};
-
-const std::vector<uint16_t> indices = {
-	0, 1, 2, 2, 3, 0,
-	4, 5, 6, 6, 7, 4
 };
 
 class HelloWorldApp {
@@ -160,6 +170,7 @@ private:
 		createTextureImage();
 		createTextureImageView();
 		createTextureSampler();
+		loadModel();
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffers();
@@ -690,7 +701,7 @@ private:
 		int texWidth;
 		int texHeight;
 		int texChannels;
-		stbi_uc *pixels = stbi_load("textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_uc *pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		VkDeviceSize imageSize = static_cast<uint64_t>(texWidth) * texHeight * 4;
 
 		if (!pixels)
@@ -752,6 +763,53 @@ private:
 		if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create texture sampler");
+		}
+	}
+
+	void loadModel()
+	{
+		tinyobj::attrib_t attrib;
+		std::vector<tinyobj::shape_t> shapes;
+		std::vector<tinyobj::material_t> materials;
+		std::string warn;
+		std::string err;
+
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str()))
+		{
+			throw std::runtime_error(warn + err);
+		}
+
+		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+		for (const auto &shape : shapes)
+		{
+			for (const auto &index : shape.mesh.indices)
+			{
+				Vertex vertex{};
+
+				size_t vertex_index = index.vertex_index;
+				vertex.pos = {
+					attrib.vertices[3 * vertex_index + 0],
+					attrib.vertices[3 * vertex_index + 1],
+					attrib.vertices[3 * vertex_index + 2]
+				};
+
+				size_t texcoord_index = index.texcoord_index;
+				vertex.texCoord = {
+					attrib.texcoords[2 * texcoord_index + 0],
+					1.0f - attrib.texcoords[2 * texcoord_index + 1]
+				};
+
+				vertex.color = { 1.0f, 1.0f, 1.0f };
+
+				if (uniqueVertices.count(vertex) == 0)
+				{
+					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+					vertices.push_back(vertex);
+				}
+
+				indices.push_back(uniqueVertices[vertex]);
+			}
 		}
 	}
 
@@ -925,7 +983,7 @@ private:
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 
-			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 			vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
 
@@ -1047,7 +1105,7 @@ private:
 		float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 		UniformBufferObject ubo{};
-		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / static_cast<float>(swapChainExtent.height), 0.1f, 10.0f);
 
@@ -1638,6 +1696,8 @@ private:
 	std::vector<VkFence> imagesInFlight = {};
 	size_t currentFrame = 0;
 	bool framebufferResized = false;
+	std::vector<Vertex> vertices = {};
+	std::vector<uint32_t> indices = {};
 	VkBuffer vertexBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
 	VkBuffer indexBuffer = VK_NULL_HANDLE;

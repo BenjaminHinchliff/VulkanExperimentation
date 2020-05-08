@@ -13,6 +13,8 @@ project ("Vulkan")
 configure_file("shaders/shader.vert.spv" "shaders/shader.vert.spv" COPYONLY)
 configure_file("shaders/shader.frag.spv" "shaders/shader.frag.spv" COPYONLY)
 configure_file("textures/texture.jpg" "textures/texture.jpg" COPYONLY)
+configure_file("textures/viking_room.png" "textures/viking_room.png" COPYONLY)
+configure_file("models/viking_room.wobj" "models/viking_room.wobj" COPYONLY)
 
 add_executable (main "Vulkan.cpp")
 
