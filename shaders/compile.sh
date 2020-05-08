@@ -1,4 +1,2 @@
-#!/bin/bash
-glslc shader.vert -o vert.spv
-glslc shader.frag -o frag.spv
-read -p "press any key..."
+glslc shader.vert -o shader.vert.spv
+glslc shader.frag -o shader.frag.spv

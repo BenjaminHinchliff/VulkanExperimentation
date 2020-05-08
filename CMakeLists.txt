@@ -10,23 +10,29 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 project ("Vulkan")
 
 # copy files
-configure_file("shaders/vert.spv" "shaders/vert.spv" COPYONLY)
-configure_file("shaders/frag.spv" "shaders/frag.spv" COPYONLY)
+configure_file("shaders/shader.vert.spv" "shaders/shader.vert.spv" COPYONLY)
+configure_file("shaders/shader.frag.spv" "shaders/shader.frag.spv" COPYONLY)
 configure_file("textures/texture.jpg" "textures/texture.jpg" COPYONLY)
 
 add_executable (main "Vulkan.cpp")
 
+# find and link vulkan
 find_package(Vulkan REQUIRED)
 target_link_libraries(main PRIVATE Vulkan::Vulkan)
 
+# add glfw
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory("deps/glfw-3.3.2")
 target_link_libraries(main PRIVATE glfw)
 
+# add glm
 add_subdirectory("deps/glm-0.9.9.8")
 target_link_libraries(main PRIVATE glm)
 
 # include stb
 target_include_directories(main PRIVATE "deps/stb")
+
+# include tiny_obj_loader
+target_include_directories(main PRIVATE "deps/tiny_obj_loader")
